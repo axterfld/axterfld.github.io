@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>BMI计算器</title>
+
+        <!-- 尽早应用已保存的主题，避免刷新时闪白 -->
+        <script>
+            (function () {
+                try {
+                    var saved = localStorage.getItem('bmi-theme');
+                    if (!saved) {
+                        saved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+                    }
+                    document.documentElement.setAttribute('data-theme', saved);
+                } catch (e) {}
+            })();
+        </script>
+
+        <style>
+            /* ===================== 主题变量 ===================== */
+            :root {
+                color-scheme: light;
+                --bg: #f4f7fb;
+                --bg-accent: radial-gradient(circle at 18% -10%, #dbeafe 0%, rgba(219, 234, 254, 0) 55%);
+                --card: #ffffff;
+                --soft: #f1f5f9;
+                --input-bg: #f8fafc;
+                --text: #0f172a;
+                --muted: #64748b;
+                --border: #e2e8f0;
+                --primary: #2563eb;
+                --primary-hover: #1d4ed8;
+                --ring: rgba(37, 99, 235, .18);
+                --shadow: 0 18px 40px -20px rgba(15, 23, 42, .35);
+            }
+
+            [data-theme="dark"] {
+                color-scheme: dark;
+                --bg: #070d18;
+                --bg-accent: radial-gradient(circle at 18% -10%, #14294d 0%, rgba(20, 41, 77, 0) 55%);
+                --card: #0e1729;
+                --soft: #16223a;
+                --input-bg: #0b1424;
+                --text: #e6eefc;
+                --muted: #8fa3c2;
+                --border: #1e2b42;
+                --primary: #3b82f6;
+                --primary-hover: #60a5fa;
+                --ring: rgba(59, 130, 246, .28);
+                --shadow: 0 18px 40px -20px rgba(0, 0, 0, .85);
+            }
+
+            /* ===================== 基础 ===================== */
+            * { box-sizing: border-box; }
+
+            body {
+                margin: 0;
+                min-height: 100vh;
+                font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI",
+                             "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+                background-color: var(--bg);
+                background-image: var(--bg-accent);
+                background-repeat: no-repeat;
+                color: var(--text);
+                -webkit-font-smoothing: antialiased;
+                transition: background-color .3s ease, color .3s ease;
+            }
+
+            .app {
+                max-width: 760px;
+                margin: 0 auto;
+                padding: 40px 20px 64px;
+            }
+
+            /* ===================== 顶部栏 ===================== */
+            .topbar {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                margin-bottom: 22px;
+            }
+
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 14px;
+                min-width: 0;
+            }
+
+            .logo {
+                flex: none;
+                width: 46px;
+                height: 46px;
+                border-radius: 14px;
+                display: grid;
+                place-items: center;
+                font-size: .78rem;
+                font-weight: 700;
+                letter-spacing: .5px;
+                color: #fff;
+                background: linear-gradient(135deg, var(--primary), #60a5fa);
+                box-shadow: 0 10px 22px -10px var(--primary);
+            }
+
+            .brand h1 {
+                margin: 0;
+                font-size: 1.35rem;
+                font-weight: 700;
+                letter-spacing: .2px;
+            }
+
+            .brand p {
+                margin: 4px 0 0;
+                font-size: .85rem;
+                color: var(--muted);
+            }
+
+            /* 主题切换开关 */
+            .theme-toggle {
+                position: relative;
+                flex: none;
+                width: 62px;
+                height: 34px;
+                padding: 0;
+                border-radius: 999px;
+                border: 1px solid var(--border);
+                background: var(--soft);
+                cursor: pointer;
+                transition: background-color .3s ease, border-color .3s ease;
+            }
+
+            .theme-toggle:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 4px var(--ring);
+            }
+
+            .theme-toggle .knob {
+                position: absolute;
+                top: 3px;
+                left: 3px;
+                width: 26px;
+                height: 26px;
+                border-radius: 50%;
+                display: grid;
+                place-items: center;
+                font-size: 13px;
+                line-height: 1;
+                background: var(--card);
+                box-shadow: 0 2px 8px rgba(15, 23, 42, .22);
+                transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+            }
+
+            [data-theme="dark"] .theme-toggle .knob {
+                transform: translateX(30px);
+            }
+
+            /* ===================== 计算卡片 ===================== */
+            .card {
+                display: grid;
+                gap: 18px;
+                padding: 28px;
+                border: 1px solid var(--border);
+                border-radius: 20px;
+                background: var(--card);
+                box-shadow: var(--shadow);
+                transition: background-color .3s ease, border-color .3s ease;
+            }
+
+            .field label {
+                display: block;
+                margin-bottom: 8px;
+                font-size: .82rem;
+                font-weight: 600;
+                letter-spacing: .06em;
+                color: var(--muted);
+            }
+
+            .input-wrap {
+                position: relative;
+                display: flex;
+                align-items: center;
+            }
+
+            .input-wrap input {
+                width: 100%;
+                padding: 14px 54px 14px 16px;
+                font-size: 1rem;
+                font-family: inherit;
+                color: var(--text);
+                background: var(--input-bg);
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                outline: none;
+                transition: border-color .2s ease, box-shadow .2s ease, background-color .3s ease;
+            }
+
+            .input-wrap input::placeholder { color: var(--muted); opacity: .7; }
+
+            .input-wrap input:focus {
+                border-color: var(--primary);
+                box-shadow: 0 0 0 4px var(--ring);
+            }
+
+            /* 去掉数字输入框的上下箭头 */
+            .input-wrap input[type="number"]::-webkit-outer-spin-button,
+            .input-wrap input[type="number"]::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            .input-wrap input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+
+            .unit {
+                position: absolute;
+                right: 16px;
+                font-size: .9rem;
+                color: var(--muted);
+                pointer-events: none;
+            }
+
+            .primary-btn {
+                margin-top: 4px;
+                padding: 14px 16px;
+                font-family: inherit;
+                font-size: 1rem;
+                font-weight: 600;
+                color: #fff;
+                background: var(--primary);
+                border: none;
+                border-radius: 12px;
+                cursor: pointer;
+                transition: background-color .2s ease, transform .12s ease, box-shadow .2s ease;
+            }
+
+            .primary-btn:hover { background: var(--primary-hover); }
+
+            .primary-btn:active { transform: translateY(1px); }
+
+            .primary-btn:focus-visible {
+                outline: none;
+                box-shadow: 0 0 0 4px var(--ring);
+            }
+
+            /* ===================== 结果区 ===================== */
+            .result-box {
+                padding: 22px;
+                text-align: center;
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                background: var(--soft);
+                transition: background-color .3s ease, border-color .3s ease;
+            }
+
+            .result-label {
+                margin: 0;
+                font-size: .72rem;
+                font-weight: 600;
+                letter-spacing: .2em;
+                text-transform: uppercase;
+                color: var(--muted);
+            }
+
+            #result {
+                display: block;
+                margin: 8px 0 6px;
+                font-size: 2rem;
+                font-weight: 700;
+                letter-spacing: .5px;
+                color: var(--text);
+                transition: color .25s ease;
+            }
+
+            #result[data-level="under"]  { color: #3b82f6; }
+            #result[data-level="normal"] { color: #16a34a; }
+            #result[data-level="over"]   { color: #d97706; }
+            #result[data-level="obese"]  { color: #ea580c; }
+            #result[data-level="severe"] { color: #dc2626; }
+
+            .bmi-value {
+                margin: 0;
+                font-size: .92rem;
+                color: var(--muted);
+            }
+
+            .bmi-value span {
+                font-weight: 600;
+                color: var(--text);
+            }
+
+            /* ===================== 介绍区 ===================== */
+            .info {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 16px;
+                margin-top: 24px;
+            }
+
+            .info-card {
+                padding: 20px;
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                background: var(--card);
+                box-shadow: var(--shadow);
+                transition: background-color .3s ease, border-color .3s ease;
+            }
+
+            .info-card h2 {
+                margin: 0 0 10px;
+                font-size: 1rem;
+                font-weight: 700;
+            }
+
+            .info-card p {
+                margin: 0;
+                font-size: .9rem;
+                line-height: 1.75;
+                color: var(--muted);
+            }
+
+            .info-card strong { color: var(--text); }
+
+            .info-card ol {
+                margin: 0;
+                padding-left: 20px;
+                font-size: .9rem;
+                line-height: 1.85;
+                color: var(--muted);
+            }
+
+            .scale {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                display: grid;
+                gap: 9px;
+                font-size: .88rem;
+                color: var(--muted);
+            }
+
+            .scale li {
+                display: flex;
+                align-items: center;
+                gap: 9px;
+            }
+
+            .dot {
+                flex: none;
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+            }
+
+            .dot.under  { background: #3b82f6; }
+            .dot.normal { background: #16a34a; }
+            .dot.over   { background: #d97706; }
+            .dot.obese  { background: #ea580c; }
+            .dot.severe { background: #dc2626; }
+
+            .foot {
+                margin-top: 26px;
+                text-align: center;
+                font-size: .78rem;
+                color: var(--muted);
+            }
+
+            /* ===================== 响应式 ===================== */
+            @media (max-width: 640px) {
+                .app { padding: 26px 16px 48px; }
+                .card { padding: 22px; }
+                .info { grid-template-columns: 1fr; }
+                .brand h1 { font-size: 1.15rem; }
+                .brand p { font-size: .78rem; }
+                #result { font-size: 1.7rem; }
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="app">
+            <!-- 顶部：标题 + 主题开关 -->
+            <header class="topbar">
+                <div class="brand">
+                    <div class="logo">BMI</div>
+                    <div>
+                        <h1>BMI计算器</h1>
+                        <p>身体质量指数 · 快速了解你的体重状况</p>
+                    </div>
+                </div>
+
+                <button id="themeBtn" class="theme-toggle" type="button" aria-label="切换白天/黑夜模式">
+                    <span class="knob">☀️</span>
+                </button>
+            </header>
+
+            <!-- 计算卡片 -->
+            <main class="card">
+                <div class="field">
+                    <label for="heightInput">身高</label>
+                    <div class="input-wrap">
+                        <input id="heightInput" type="number" step="0.01" inputmode="decimal"
+                               placeholder="例如 1.70" autocomplete="off">
+                        <span class="unit">m</span>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="weightInput">体重</label>
+                    <div class="input-wrap">
+                        <input id="weightInput" type="number" step="0.1" inputmode="decimal"
+                               placeholder="例如 65" autocomplete="off">
+                        <span class="unit">kg</span>
+                    </div>
+                </div>
+
+                <button id="continueBtn" class="primary-btn" type="button">开始计算</button>
+
+                <div class="result-box">
+                    <p class="result-label">结果</p>
+                    <span id="result">--</span>
+                    <p class="bmi-value">BMI 数值：<span id="bmiValue">--</span></p>
+                </div>
+            </main>
+
+            <!-- 介绍区 -->
+            <section class="info">
+                <article class="info-card">
+                    <h2>什么是 BMI？</h2>
+                    <p>
+                        BMI（Body Mass Index，身体质量指数）是用身高和体重估算胖瘦程度的常用指标，
+                        计算公式为 <strong>BMI = 体重(kg) ÷ 身高(m)²</strong>。
+                        它简单、直观，常被用于快速筛查体重是否处在健康区间。
+                    </p>
+                </article>
+
+                <article class="info-card">
+                    <h2>关于这个计算器</h2>
+                    <p>
+                        这是一个纯前端实现的 BMI 计算器，所有运算都在你的浏览器本地完成，
+                        不会上传也不会保存任何数据。界面提供<strong>白天 / 黑夜</strong>两套配色，
+                        点击右上角的开关即可切换。
+                    </p>
+                </article>
+
+                <article class="info-card">
+                    <h2>使用方法</h2>
+                    <ol>
+                        <li>在“身高”栏输入以<strong>米</strong>为单位的身高，例如 1.70。</li>
+                        <li>在“体重”栏输入以<strong>千克</strong>为单位的身重，例如 65。</li>
+                        <li>点击“开始计算”（或在输入框内按回车键）。</li>
+                        <li>上方结果区会显示 BMI 数值与对应的体重等级。</li>
+                    </ol>
+                </article>
+
+                <article class="info-card">
+                    <h2>结果参考范围</h2>
+                    <ul class="scale">
+                        <li><span class="dot under"></span>过轻：BMI &lt; 18.5</li>
+                        <li><span class="dot normal"></span>正常：18.5 ≤ BMI &lt; 25</li>
+                        <li><span class="dot over"></span>过重：25 ≤ BMI &lt; 28</li>
+                        <li><span class="dot obese"></span>肥胖：28 ≤ BMI &lt; 32</li>
+                        <li><span class="dot severe"></span>严重肥胖：BMI ≥ 32</li>
+                    </ul>
+                </article>
+            </section>
+
+            <p class="foot">BMI 仅为参考指标，不能替代专业医疗建议。</p>
+        </div>
+
+        <script src="BMI Calculator2.0.js"></script>
+    </body>
+</html>
